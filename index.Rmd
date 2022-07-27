@@ -283,17 +283,45 @@ distritos_delitos <-
 ```
 
 ```{r}
-colores_distritos_delitos <-
-  colorNumeric(palette = "Reds",
-               domain = distritos_delitos$delitos,
-               )
+estadisticas_policiales <-
+  estadisticas_policiales %>%
+  left_join(
+    dplyr::select(
+      st_drop_geometry(distritos),
+      codigo_dta,
+      cod_canton,
+      distrito_normalizado
+    ),
+    by = c("distrito_normalizado" = "distrito_normalizado"),
+    copy = FALSE,
+    keep = FALSE
+  )
 ```
 
 ```{r}
 renderLeaflet({
-   estadisticas_policiales <- filtrarEstadisticas()
+  estadisticas <- filtrarEstadisticas()
+ 
+delitos_x_distrito <-
+  estadisticas %>%
+  count(codigo_dta, name = "delitos")
+distritos_delitos <-
+  distritos %>%
+  left_join(
+    delitos_x_distrito,
+    by = "codigo_dta",
+    copy = FALSE,
+    keep = FALSE
+  ) %>%
+  mutate(delitos = ifelse(is.na(delitos), 0, delitos))
+    
+colores_distritos_delitos <-
+  colorNumeric(palette = "Reds",
+               domain = distritos_delitos$delitos,
+              )
+
 leaflet() %>%
-    setView(
+  setView(
     lng = -84.19452,
     lat = 9.572735,
     zoom = 7) %>%
@@ -301,24 +329,24 @@ leaflet() %>%
   addPolygons(
     data = distritos_delitos,
     fillColor = ~ colores_distritos_delitos(distritos_delitos$delitos),
-    fillOpacity = 0.2,
+    fillOpacity = 0.8,
     color = "black",
     stroke = TRUE,
-    weight = 1.5,
+    weight = 1.0,
     popup = paste(
       paste(
         "<strong>Distrito:</strong>",
         distritos_delitos$distrito
       ),
       paste(
-        "<strong>Delito:</strong>",
+        "<strong>Delitos:</strong>",
         distritos_delitos$delitos
       ),
       paste(
         "<strong>Cantón:</strong>",
-        distritos_delitos$canton
+        distritos_delitos$distrito
       ),
-       paste(
+      paste(
         "<strong>Provincia:</strong>",
         distritos_delitos$provincia
       ),
@@ -327,12 +355,10 @@ leaflet() %>%
     group = "Distritos"
   ) %>%
   addLayersControl(
-   
     baseGroups = c("OpenStreetMap"),
     overlayGroups = c("Distritos")
   ) %>%
   addLegend(
-   
     position = "bottomleft",
     pal = colores_distritos_delitos,
     values = distritos_delitos$delitos,
